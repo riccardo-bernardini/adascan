@@ -1,0 +1,6 @@
+obj/*.[^@]*
+obj/gnatprove/*
+obj/gnatprove
+obj/test_tokenizer
+gnatinspect.db
+lib/gnatprove/* 
