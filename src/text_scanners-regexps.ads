@@ -56,6 +56,8 @@ package Text_Scanners.Regexps is
 
    function Fixed_String (Str : String) return Regexp;
 
+   function Parse (Str : String) return Regexp;
+
    type Comment_Specs is private;
    --  The scanner can be programmed to recognize different types of "comment
    --  styles."  Currently it recognizes single delimited comments that
@@ -117,24 +119,39 @@ private
          R : Regexp_Holders.Holder;
       end record;
 
-   type Comment_Style_Type is (Void, End_At_EOL, End_Delimeter);
 
-   type Comment_Specs (Style : Comment_Style_Type := Void)  is
+   type Comment_Specs (Format : Comment_Format := Void)  is
       record
 
          Start : Unbounded_String;
 
-         case Style is
+         case Format is
             when Void | End_At_EOL =>
                null;
 
-            when End_Delimeter =>
+            when End_At_Delimiter =>
                Stop  : Unbounded_String;
          end case;
-      end record;
-   --       with
-   --         Predicate => (if Style = Void then Start = Ada.Strings.Unbounded.Null_Unbounded_String);
+      end record
+     with
+       Predicate => (if Format = Void then Start = Null_Unbounded_String);
 
-   No_Comment : constant Comment_Specs := Comment_Specs'(Style => Void,
-                                                         Start => Null_Unbounded_String);
+   No_Comment : constant Comment_Specs := Comment_Specs'(Format => Void,
+                                                         Start  => Null_Unbounded_String);
+
+   function Is_Eof_Regexp (X : Regexp) return Boolean
+   is (X.R.Is_Empty);
+
+   function EOF return Regexp
+   is (Regexp'(R => Regexp_Holders.Empty_Holder));
+
+   function Format (Spec : Comment_Specs) return Comment_Format
+   is (Spec.Format);
+
+   function Comment_Start (Specs : Comment_Specs) return String
+   is (To_String (Specs.Start));
+
+   function Comment_End (Specs : Comment_Specs) return String
+   is (To_String (Specs.Stop));
+
 end Text_Scanners.Regexps;

@@ -13,8 +13,8 @@ package Text_Scanners.Post_Processors is
 
    function No_Processing return Post_Processor;
 
-   type Case_Conversion is (Lower, Upper, None);
-   type Trimming_Specs is (Head, Tail, Both, None);
+   type Case_Conversion is (Lower, Upper);
+   type Trimming_Specs is (Head, Tail, Both);
 
    function Force_Case (To : Case_Conversion) return Post_Processor;
    function Trim (Spec : Trimming_Specs) return Post_Processor;
@@ -36,6 +36,9 @@ private
 
    type Post_Processor is
       record
-         H : Processor_Lists.List;
+         Process_Chain : Processor_Lists.List;
       end record;
+
+   function No_Processing return Post_Processor
+   is (Post_Processor'(Process_Chain => Processor_Lists.Empty_List));
 end Text_Scanners.Post_Processors;

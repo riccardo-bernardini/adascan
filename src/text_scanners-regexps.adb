@@ -1,19 +1,23 @@
 pragma Ada_2012;
+with Ada.Strings.Maps;
+with Ada.Strings.Fixed;
+
 package body Text_Scanners.Regexps is
-   function ID_Regexp (Additional_ID_Chars : String := "";
-                       Basic_ID_Chars      : String := "a-zA-Z0-9_";
-                       Begin_ID_Chars      : String := "a-zA-Z")
-                       return Unbounded_String
+   function Parse (Str : String) return Regexp
    is
-      Tmp : constant String := "[" & Begin_ID_Chars & "]"
-              &
-              "[" & Basic_ID_Chars & Additional_ID_Chars & "]*";
+      use Gnat.Regpat;
    begin
-      --        Ada.Text_IO.Put_Line ("<<" & Tmp & ">>");
-      return To_Unbounded_String (Tmp);
-      --          ("[" & Begin_ID_Chars & "]"
-      --           &
-      --           "[" & Basic_ID_Chars & Additional_ID_Chars & "]*");
+      return Regexp'(R => Regexp_Holders.To_Holder (Compile (Str)));
+   end Parse;
+
+   function ID_Regexp (Additional_ID_Chars : String := "_";
+                       Basic_ID_Chars      : String := "a-zA-Z0-9";
+                       Begin_ID_Chars      : String := "a-zA-Z")
+                       return Regexp
+   is
+   begin
+      return Parse ("[" & Begin_ID_Chars & "]"
+                    & "[" & Basic_ID_Chars & Additional_ID_Chars & "]*");
    end ID_Regexp;
 
    function Number_Regexp return Unbounded_String
@@ -27,14 +31,14 @@ package body Text_Scanners.Regexps is
    -- String_Regexp --
    -------------------
 
-   function String_Regexp (Quote_Char : Character) return Unbounded_String
+   function String_Regexp (Quote_Char : Character) return Regexp
    is
       use Ada.Strings.Maps;
       use Ada.Strings.Fixed;
 
       Pattern : constant String := "'([^\\']|\\.)*'";
    begin
-      return To_Unbounded_String
+      return Parse
         (Translate (Source  => Pattern,
                     Mapping => To_Mapping ("'", "" & Quote_Char)));
    end String_Regexp;
@@ -60,32 +64,19 @@ package body Text_Scanners.Regexps is
       return Regexp
    is
    begin
-      --  Generated stub: replace with real body!
-      pragma Compile_Time_Warning (Standard.True, "Number_Regexp unimplemented");
-      return raise Program_Error with "Unimplemented function Number_Regexp";
+      return Parse ("[-+]?[0-9]?");
    end Number_Regexp;
 
-   function Regexp_Quote (Str : String) return Unbounded_String
+   function Fixed_String (Str : String) return Regexp
    is
    begin
-      return To_Unbounded_String (GNAT.Regpat.Quote (Str));
-   end Regexp_Quote;
+      return Parse (GNAT.Regpat.Quote (Str));
+   end Fixed_String;
 
-   function Float_Regexp return Unbounded_String is
+   function Float_Regexp (Style : Language_Style := Ada_Style) return Regexp is
    begin
-      return To_Unbounded_String ("[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?");
+      return Parse ("[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?");
    end Float_Regexp;
-
-   -------------------
-   -- String_Regexp --
-   -------------------
-
-   function String_Regexp (Quote_Char : Character) return Regexp is
-   begin
-      --  Generated stub: replace with real body!
-      pragma Compile_Time_Warning (Standard.True, "String_Regexp unimplemented");
-      return raise Program_Error with "Unimplemented function String_Regexp";
-   end String_Regexp;
 
    -------------------
    -- String_Regexp --
@@ -101,25 +92,15 @@ package body Text_Scanners.Regexps is
       return raise Program_Error with "Unimplemented function String_Regexp";
    end String_Regexp;
 
-   ------------------
-   -- Fixed_String --
-   ------------------
 
-   function Fixed_String (Str : String) return Regexp is
-   begin
-      --  Generated stub: replace with real body!
-      pragma Compile_Time_Warning (Standard.True, "Fixed_String unimplemented");
-      return raise Program_Error with "Unimplemented function Fixed_String";
-   end Fixed_String;
-
-      -------------------------------
+   -------------------------------
    -- Single_Delimeter_Comments --
    -------------------------------
 
    function Single_Delimeter_Comments (Start : String) return Comment_Specs is
    begin
-      return Comment_Specs'(Style => End_At_EOL,
-                            Start => To_Unbounded_String (Start));
+      return Comment_Specs'(Format => End_At_EOL,
+                            Start  => To_Unbounded_String (Start));
    end Single_Delimeter_Comments;
 
 
@@ -129,9 +110,9 @@ package body Text_Scanners.Regexps is
 
    function Double_Delimeter_Comments (Start, Stop : String) return Comment_Specs is
    begin
-      return Comment_Specs'(Style => End_Delimeter,
-                            Start => To_Unbounded_String (Start),
-                            Stop  => To_Unbounded_String (Stop));
+      return Comment_Specs'(Format => End_At_Delimiter,
+                            Start  => To_Unbounded_String (Start),
+                            Stop   => To_Unbounded_String (Stop));
    end Double_Delimeter_Comments;
 
    function Comment_Like (Style : Comment_Style) return Comment_Specs is
@@ -151,6 +132,30 @@ package body Text_Scanners.Regexps is
             return Single_Delimeter_Comments (";");
       end case;
    end Comment_Like;
+
+   function Match (Self : Regexp;
+                   Data : String)
+                   return Match_Result
+   is
+      use type GNAT.Regpat.Match_Location;
+
+      Matches : Gnat.Regpat.Match_Array (0 .. 0);
+   begin
+      if Is_Eof_Regexp (Self) then
+         return No_Match;
+      end if;
+
+      Gnat.Regpat.Match (Self       => Regexp_Holders.Element (Self.R),
+                         Data       => Data,
+                         Matches    => Matches);
+
+      if Matches (Matches'First) = Gnat.Regpat.No_Match then
+         return No_Match;
+      else
+         return Match_Result'(First => Matches (Matches'First).First,
+                              Last  => Matches (Matches'First).Last);
+      end if;
+   end Match;
 
 
 
