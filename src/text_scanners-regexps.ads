@@ -1,4 +1,6 @@
 with Ada.Finalization;
+with Ada.Strings.Unbounded;         use Ada.Strings.Unbounded;
+with Ada.Containers.Indefinite_Holders;
 
 private with Gnat.Regpat;
 
@@ -7,7 +9,32 @@ use Ada;
 package Text_Scanners.Regexps is
    pragma SPARK_Mode (On);
 
-   type Regexp is new Finalization.Limited_Controlled with private;
+   type Regexp is tagged private;
+
+   type Match_Result is
+      record
+         First : Natural := 0;
+         Last  : Natural := 0;
+      end record;
+
+   No_Match : constant Match_Result := (0, 0);
+
+   function Match (Self : Regexp;
+                   Data : String)
+                   return Match_Result
+     with
+       Post =>
+         Match'Result = No_Match or
+         (Match'Result.Last >= Match'Result.First
+          and Match'Result.First >= Data'First
+          and Match'Result.Last <= Data'Last);
+
+
+   function Is_Eof_Regexp (X : Regexp) return Boolean;
+
+   function EOF return Regexp
+     with
+       Post => Is_Eof_Regexp (EOF'Result);
 
    type Language_Style is (C_Style, Ada_Style);
 
@@ -29,14 +56,85 @@ package Text_Scanners.Regexps is
 
    function Fixed_String (Str : String) return Regexp;
 
+   type Comment_Specs is private;
+   --  The scanner can be programmed to recognize different types of "comment
+   --  styles."  Currently it recognizes single delimited comments that
+   --  end at the end of line (e.g., Shell, C++, Ada) or doubly delimited
+   --  comments (e.g., C).  The delimiter description is given in a
+   --  string of type Comment_Specs.
+   --  Comment_Specs strings can be created using the functions
+   --  Single_Delimeter_Comments and Double_Delimeter_Comments.
+
+   No_Comment : constant Comment_Specs;
+   --  Special specs used for the "no comment" case.  If this is used,
+   --  the scanner does not recognize any type of comment.
+
+   type Comment_Format is (Void, End_At_EOL, End_At_Delimiter);
+
+   function Format (Spec : Comment_Specs) return Comment_Format;
+
+   function Single_Delimeter_Comments (Start : String) return Comment_Specs
+     with
+       Post => Format (Single_Delimeter_Comments'Result) = End_At_EOL;
+
+   function Double_Delimeter_Comments (Start, Stop : String) return Comment_Specs
+     with
+       Post => Format (Double_Delimeter_Comments'Result) = End_At_Delimiter;
+
+   function Comment_Start (Specs : Comment_Specs) return String
+     with
+       Pre => Format (Specs) /= Void;
+
+   function Comment_End (Specs : Comment_Specs) return String
+     with
+       Pre => Format (Specs) = End_At_Delimiter;
+
+   type Comment_Style is
+     (
+      Shell_Like,        --  Begin at '#' ends at end-of-line
+      Ada_Like,          --  Begin at '--' ends at end-of-line
+      LaTeX_Like,        --  Begin at '%' ends at end-of-line
+      C_Like,            --  Begin at '/*' ends at '*/'
+      C_Plus_Plus_Like,  --  Begin at '//' ends at end-of-line
+      Asm_Like           --  Begin at '//' ends at end-of-line
+     );
+   --  Used together with the function Comment_Like to create some very
+   --  common comment conventions
+
+   function Comment_Like (Style : Comment_Style) return Comment_Specs;
+
+
 private
    pragma SPARK_Mode (Off);
 
-   type Matcher_Access is access Gnat.Regpat.Pattern_Matcher;
+   use type GNAT.Regpat.Pattern_Matcher;
 
-   type Regexp is new Finalization.Limited_Controlled
-     with
+   package Regexp_Holders is
+     new Ada.Containers.Indefinite_Holders (Gnat.Regpat.Pattern_Matcher);
+
+   type Regexp is tagged
       record
-         Matcher : Matcher_Access;
+         R : Regexp_Holders.Holder;
       end record;
+
+   type Comment_Style_Type is (Void, End_At_EOL, End_Delimeter);
+
+   type Comment_Specs (Style : Comment_Style_Type := Void)  is
+      record
+
+         Start : Unbounded_String;
+
+         case Style is
+            when Void | End_At_EOL =>
+               null;
+
+            when End_Delimeter =>
+               Stop  : Unbounded_String;
+         end case;
+      end record;
+   --       with
+   --         Predicate => (if Style = Void then Start = Ada.Strings.Unbounded.Null_Unbounded_String);
+
+   No_Comment : constant Comment_Specs := Comment_Specs'(Style => Void,
+                                                         Start => Null_Unbounded_String);
 end Text_Scanners.Regexps;

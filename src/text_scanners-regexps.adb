@@ -112,4 +112,46 @@ package body Text_Scanners.Regexps is
       return raise Program_Error with "Unimplemented function Fixed_String";
    end Fixed_String;
 
+      -------------------------------
+   -- Single_Delimeter_Comments --
+   -------------------------------
+
+   function Single_Delimeter_Comments (Start : String) return Comment_Specs is
+   begin
+      return Comment_Specs'(Style => End_At_EOL,
+                            Start => To_Unbounded_String (Start));
+   end Single_Delimeter_Comments;
+
+
+   -------------------------------
+   -- Double_Delimeter_Comments --
+   -------------------------------
+
+   function Double_Delimeter_Comments (Start, Stop : String) return Comment_Specs is
+   begin
+      return Comment_Specs'(Style => End_Delimeter,
+                            Start => To_Unbounded_String (Start),
+                            Stop  => To_Unbounded_String (Stop));
+   end Double_Delimeter_Comments;
+
+   function Comment_Like (Style : Comment_Style) return Comment_Specs is
+   begin
+      case Style is
+         when Shell_Like =>
+            return Single_Delimeter_Comments ("#");
+         when Ada_Like =>
+            return Single_Delimeter_Comments ("--");
+         when LaTeX_Like =>
+            return Single_Delimeter_Comments ("%");
+         when C_Like =>
+            return Double_Delimeter_Comments ("/*", "*/");
+         when C_Plus_Plus_Like =>
+            return Single_Delimeter_Comments ("//");
+         when Asm_Like =>
+            return Single_Delimeter_Comments (";");
+      end case;
+   end Comment_Like;
+
+
+
 end Text_Scanners.Regexps;
