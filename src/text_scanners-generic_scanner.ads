@@ -3,9 +3,9 @@ pragma SPARK_Mode;
 with Ada.Finalization;
 with Ada.Strings.Unbounded;       use Ada.Strings.Unbounded;
 with Ada.Strings.Maps;
-with Ada.Containers.Indefinite_Holders;
 
-private with GNAT.Regpat;
+with Text_Scanners.Regexps;
+private with Text_Scanners.Basic_Generic_Scanner;
 
 ---------------------
 -- Generic_Scanner --
@@ -19,9 +19,8 @@ package Text_Scanners.Generic_Scanner with SPARK_Mode => On  is
    with
      private;
 
-   type Token_Regexp is private;
 
-   type Token_Regexp_Array is array (Token_Type) of Token_Regexp;
+   type Token_Regexp_Array is array (Token_Type) of Regexps.Regexp;
    --  A token regexp array maps each token into the corresponding regexp
 
    type Token_Array is array (Positive range <>) of Token_Type;
@@ -30,6 +29,7 @@ package Text_Scanners.Generic_Scanner with SPARK_Mode => On  is
 
    function Process (Handler : String_Preprocessor;
                      Class   : Token_Type;
+
                      Value   : String)
                      return String
                      is abstract;
@@ -132,7 +132,6 @@ package Text_Scanners.Generic_Scanner with SPARK_Mode => On  is
 
 
 private
-   type Token_Regexp is access Gnat.Regpat.Pattern_Matcher;
 
    type Comment_Style_Type is (Void, End_At_EOL, End_Delimeter);
 
@@ -155,11 +154,7 @@ private
    No_Comment : constant Comment_Specs := Comment_Specs'(Style => Void,
                                                          Start => Null_Unbounded_String);
 
-   type Matcher_Access is
-     access GNAT.Regpat.Pattern_Matcher;
-
-   type Regexp_Array is
-     array (Token_Type) of Token_Regexp;
+   type Regexp_Array is array (Token_Type) of Regexps.Regexp;
 
    type History_Entry is
       record
@@ -173,13 +168,10 @@ private
    type History_Array is
      array (Natural range <>) of History_Entry;
 
-   package Callback_Holder is
-     new Ada.Containers.Indefinite_Holders (String_Preprocessor'Class);
-
 
    type True_Scanner_Type (Size         : Positive;
                            History_Size : Positive) is
-     new Ada.Finalization.Controlled
+     new Ada.Finalization.Limited_Controlled
    with
       record
          Regexp_Table    : Regexp_Array;
@@ -192,7 +184,7 @@ private
          Whitespace      : Ada.Strings.Maps.Character_Set;
          History         : History_Array (0 .. History_Size);
          History_Cursor  : Natural;
-         Callbacks       : Callback_Holder.Holder;
+--           Callbacks       : Callback_Holder.Holder;
          Comment_Style   : Comment_Specs;
          First_Scan_Done : Boolean;
       end record;
