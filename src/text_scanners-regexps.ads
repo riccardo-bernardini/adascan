@@ -1,7 +1,7 @@
 with Ada.Finalization;
 with Ada.Strings.Unbounded;         use Ada.Strings.Unbounded;
 with Ada.Containers.Indefinite_Holders;
-
+with Text_Scanners.Regexp_Holders;
 private with Gnat.Regpat;
 
 use Ada;
@@ -107,12 +107,12 @@ package Text_Scanners.Regexps is
 
 
 private
-   pragma SPARK_Mode (Off);
+   pragma Warnings (Off, "no Global Contract available");
 
    use type GNAT.Regpat.Pattern_Matcher;
 
-   package Regexp_Holders is
-     new Ada.Containers.Indefinite_Holders (Gnat.Regpat.Pattern_Matcher);
+--     package Regexp_Holders is
+--       new Ada.Containers.Indefinite_Holders (Gnat.Regpat.Pattern_Matcher);
 
    type Regexp is tagged
       record

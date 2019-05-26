@@ -1,4 +1,5 @@
-with Ada.Containers.Indefinite_Doubly_Linked_Lists;
+with Text_Scanners.Processor_Interfaces;
+
 
 package Text_Scanners.Post_Processors is
    pragma SPARK_Mode (On);
@@ -9,7 +10,7 @@ package Text_Scanners.Post_Processors is
                    What : String)
                    return String;
 
-   function "*" (X, Y : Post_Processor) return Post_Processor;
+   function "*" (X, Y : Post_Processor) return Post_Processor with SPARK_Mode => Off ;
 
    function No_Processing return Post_Processor;
 
@@ -19,20 +20,12 @@ package Text_Scanners.Post_Processors is
    function Force_Case (To : Case_Conversion) return Post_Processor;
    function Trim (Spec : Trimming_Specs) return Post_Processor;
 
-   type Processor_Interface is interface;
 
-   function Process (P    : Processor_Interface;
-                     What : String)
-                     return String
-                     is abstract;
 
-   function Create (P : Processor_Interface'Class)
+   function Create (P : Processor_Interfaces.Processor_Interface'Class)
                     return Post_Processor;
 private
-   pragma SPARK_Mode (Off);
-
-   package Processor_Lists is
-     new Ada.Containers.Indefinite_Doubly_Linked_Lists (Processor_Interface'Class);
+   package Processor_Lists renames Processor_Interfaces.Processor_Lists;
 
    type Post_Processor is
       record

@@ -3,6 +3,10 @@ with Ada.Strings.Maps;
 with Ada.Strings.Fixed;
 
 package body Text_Scanners.Regexps is
+   pragma SPARK_Mode (On);
+
+   pragma Warnings (Off, "no Global Contract available");
+
    function Parse (Str : String) return Regexp
    is
       use Gnat.Regpat;
@@ -16,15 +20,10 @@ package body Text_Scanners.Regexps is
                        return Regexp
    is
    begin
-      return Parse ("[" & Begin_ID_Chars & "]"
-                    & "[" & Basic_ID_Chars & Additional_ID_Chars & "]*");
+      return Parse ("[" & Begin_ID_Chars & "]" &
+                      "[" & Basic_ID_Chars & Additional_ID_Chars & "]*");
    end ID_Regexp;
 
-   function Number_Regexp return Unbounded_String
-   is
-   begin
-      return To_Unbounded_String ("[1-9][0-9]*");
-   end Number_Regexp;
 
 
    -------------------
@@ -49,6 +48,7 @@ package body Text_Scanners.Regexps is
    ---------------
 
    function ID_Regexp (Style : Language_Style) return Regexp is
+      pragma SPARK_Mode (Off);
    begin
       --  Generated stub: replace with real body!
       pragma Compile_Time_Warning (Standard.True, "ID_Regexp unimplemented");
@@ -86,6 +86,7 @@ package body Text_Scanners.Regexps is
      (Style : Language_Style := Ada_Style)
       return Regexp
    is
+      pragma SPARK_Mode (Off);
    begin
       --  Generated stub: replace with real body!
       pragma Compile_Time_Warning (Standard.True, "String_Regexp unimplemented");
