@@ -1,6 +1,6 @@
 pragma SPARK_Mode;
 
-with Generic_Scanner;
+with Text_Scanners.Regexps;
 
 -----------
 -- Prova --
@@ -8,6 +8,9 @@ with Generic_Scanner;
 
 package Prova is
    type Zorro is (A, B, C);
-   package Pluto is
-     new Generic_Scanner (Zorro);
+   type Topo is array (Positive range <>) of Text_Scanners.Regexps.Regexp;
+
+   X : constant Topo := (1 => Text_Scanners.Regexps.ID_Regexp,
+                         2 => Text_Scanners.Regexps.Number_Regexp);
+
 end Prova;

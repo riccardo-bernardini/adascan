@@ -3,6 +3,7 @@ pragma SPARK_Mode;
 with Ada.Finalization;
 with Ada.Strings.Unbounded;       use Ada.Strings.Unbounded;
 with Ada.Strings.Maps;
+with Ada.Containers.Indefinite_Holders;
 
 private with GNAT.Regpat;
 
@@ -12,29 +13,37 @@ private with GNAT.Regpat;
 
 generic
    type Token_Type is (<>);
-package Generic_Scanner with SPARK_Mode => On  is
+package Text_Scanners.Generic_Scanner with SPARK_Mode => On  is
    type Scanner_Type (<>) is new
      Ada.Finalization.Limited_Controlled
    with
      private;
 
-   type Token_Regexp_Array is
-     array (Token_Type) of Unbounded_String;
+   type Token_Regexp is private;
+
+   type Token_Regexp_Array is array (Token_Type) of Token_Regexp;
    --  A token regexp array maps each token into the corresponding regexp
 
-   type Token_Array is
-     array (Positive range <>) of Token_Type;
+   type Token_Array is array (Positive range <>) of Token_Type;
 
-   type String_Preprocessor is tagged null record;
+   type String_Preprocessor is interface;
 
    function Process (Handler : String_Preprocessor;
                      Class   : Token_Type;
                      Value   : String)
                      return String
+                     is abstract;
+
+   type Trivial_Processor is new String_Preprocessor with null record;
+
+   function Process (Handler : Trivial_Processor;
+                     Class   : Token_Type;
+                     Value   : String)
+                     return String
    is (Value);
 
---     type Callback_Array is
---       array (Token_Type) of access function (X : String) return String;
+   --     type Callback_Array is
+   --       array (Token_Type) of access function (X : String) return String;
    --  After recognizing a token, the scanner can call a "pre-processing"
    --  function whose duty is to pre-process the token "value" (i.e., the
    --  text representation of the token).  For example, the callback associated
@@ -43,7 +52,7 @@ package Generic_Scanner with SPARK_Mode => On  is
    --  A Callback_Array maps each token into the corresponding pre-processing
    --  function or null, if no pre-processing is required.
 
-   No_Processing : constant String_Preprocessor := String_Preprocessor'(others => <>);
+   No_Processing : constant Trivial_Processor;-- := Trivial_Processor'(others => <>);
 
    type Comment_Specs is private;
    --  The scanner can be programmed to recognize different types of "comment
@@ -121,21 +130,10 @@ package Generic_Scanner with SPARK_Mode => On  is
    Unmatched_Token    : exception;
    Unexpected_EOF     : exception;
 
-   function Regexp_Quote (Str : String) return Unbounded_String;
-
-   function ID_Regexp (Additional_ID_Chars : String := "";
-                       Basic_ID_Chars      : String := "a-zA-Z0-9_";
-                       Begin_ID_Chars      : String := "a-zA-Z")
-                       return Unbounded_String;
-
-   function Number_Regexp return Unbounded_String;
-
-   function Float_Regexp return Unbounded_String;
-
-   function String_Regexp (Quote_Char : Character) return Unbounded_String;
-
 
 private
+   type Token_Regexp is access Gnat.Regpat.Pattern_Matcher;
+
    type Comment_Style_Type is (Void, End_At_EOL, End_Delimeter);
 
    type Comment_Specs (Style : Comment_Style_Type := Void)  is
@@ -161,7 +159,7 @@ private
      access GNAT.Regpat.Pattern_Matcher;
 
    type Regexp_Array is
-     array (Token_Type) of Matcher_Access;
+     array (Token_Type) of Token_Regexp;
 
    type History_Entry is
       record
@@ -175,6 +173,8 @@ private
    type History_Array is
      array (Natural range <>) of History_Entry;
 
+   package Callback_Holder is
+     new Ada.Containers.Indefinite_Holders (String_Preprocessor'Class);
 
 
    type True_Scanner_Type (Size         : Positive;
@@ -192,7 +192,7 @@ private
          Whitespace      : Ada.Strings.Maps.Character_Set;
          History         : History_Array (0 .. History_Size);
          History_Cursor  : Natural;
-         Callbacks       : String_Preprocessor;
+         Callbacks       : Callback_Holder.Holder;
          Comment_Style   : Comment_Specs;
          First_Scan_Done : Boolean;
       end record;
@@ -217,4 +217,7 @@ private
    procedure Skip_At_EOF (Scanner : Scanner_Type);
 
    procedure Save_Current_Token_In_History (Scanner : Scanner_Type);
-end Generic_Scanner;
+
+   No_Processing : constant Trivial_Processor := Trivial_Processor'(others => <>);
+
+end Text_Scanners.Generic_Scanner;

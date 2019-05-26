@@ -6,9 +6,7 @@ with Ada.Strings.Fixed;
 --  with Ada.Text_IO;
 --  pragma Warnings (Off, Ada.Text_IO);
 
-package body Generic_Scanner is
-   type U is access Character;
-   V   : U := new Character'('x');
+package body Text_Scanners.Generic_Scanner is
 
    -----------------
    -- New_Scanner --
@@ -18,7 +16,7 @@ package body Generic_Scanner is
                          Regexps        : Token_Regexp_Array;
                          History_Size   : Positive := 1024;
                          Comment_Delim  : Comment_Specs := No_Comment;
-                         Callbacks      : Callback_Array := No_Callbacks;
+                         Callbacks      : String_Preprocessor'Class := No_Processing;
                          Scan           : Boolean := True)
                          return Scanner_Type
      with SPARK_Mode => On
@@ -45,7 +43,7 @@ package body Generic_Scanner is
                                       To_Set (" " & CR & LF & VT & HT),
                                     History         => <>,
                                     History_Cursor  => 0,
-                                    Callbacks       => Callbacks,
+                                    Callbacks       => Callback_Holder.To_Holder (Callbacks),
                                     Comment_Style   => Comment_Delim,
                                     First_Scan_Done => False);
 
@@ -301,18 +299,20 @@ package body Generic_Scanner is
                   Value : constant String :=
                             Scanner.S.Input (Buffer (0).First .. Buffer (0).Last);
                begin
-                  if Scanner.S.Callbacks (Token) /= null then
-                     Scanner.S.String_Value :=
-                       To_Unbounded_String (Scanner.S.Callbacks (Token) (Value));
-                  else
-                     Scanner.S.String_Value :=
-                       To_Unbounded_String (Value);
-                  end if;
+--                    if Scanner.S.Callbacks (Token) /= null then
+--                       Scanner.S.String_Value :=
+--                         To_Unbounded_String (Scanner.S.Callbacks (Token) (Value));
+--                    else
+--                       Scanner.S.String_Value :=
+--                         To_Unbounded_String (Value);
+--                    end if;
+                  null;
                end;
 
                Scanner.S.Cursor := Buffer (0).Last + 1;
                return;
-            end if;
+
+               end if;
          end loop;
       end;
 
@@ -360,44 +360,6 @@ package body Generic_Scanner is
       return Scanner.S.Cursor > Scanner.S.Input'Last;
    end At_EOF;
 
-   function ID_Regexp (Additional_ID_Chars : String := "";
-                       Basic_ID_Chars      : String := "a-zA-Z0-9_";
-                       Begin_ID_Chars      : String := "a-zA-Z")
-                       return Unbounded_String
-   is
-      Tmp : constant String := "[" & Begin_ID_Chars & "]"
-              &
-              "[" & Basic_ID_Chars & Additional_ID_Chars & "]*";
-   begin
-      --        Ada.Text_IO.Put_Line ("<<" & Tmp & ">>");
-      return To_Unbounded_String (Tmp);
-      --          ("[" & Begin_ID_Chars & "]"
-      --           &
-      --           "[" & Basic_ID_Chars & Additional_ID_Chars & "]*");
-   end ID_Regexp;
-
-   function Number_Regexp return Unbounded_String
-   is
-   begin
-      return To_Unbounded_String ("[1-9][0-9]*");
-   end Number_Regexp;
-
-
-   -------------------
-   -- String_Regexp --
-   -------------------
-
-   function String_Regexp (Quote_Char : Character) return Unbounded_String
-   is
-      use Ada.Strings.Maps;
-      use Ada.Strings.Fixed;
-
-      Pattern : constant String := "'([^\\']|\\.)*'";
-   begin
-      return To_Unbounded_String
-        (Translate (Source  => Pattern,
-                    Mapping => To_Mapping ("'", "" & Quote_Char)));
-   end String_Regexp;
 
    ----------------
    -- Initialize --
@@ -422,7 +384,7 @@ package body Generic_Scanner is
       Item.On_EOF_Valid := False;
 
       for I in Tokens'Range loop
-         if Tokens (I) = Null_Unbounded_String then
+         if Tokens (I) = null then
             if Item.On_EOF_Valid then
                raise Constraint_Error
                  with "Too many EOF symbols";
@@ -432,8 +394,9 @@ package body Generic_Scanner is
             Item.On_EOF_Valid := True;
             Item.Regexp_Table (I) := new Pattern_Matcher'(Never_Match);
          else
-            Item.Regexp_Table (I) :=
-              new Pattern_Matcher'(Compile (Anchored (Tokens (I))));
+              Item.Regexp_Table (I) := Tokens(I);
+--            new Pattern_Matche (
+--                                  r'(Compile (Anchored (Tokens (I))));
          end if;
       end loop;
    end Initialize;
@@ -449,12 +412,12 @@ package body Generic_Scanner is
 
       procedure Free is
         new Ada.Unchecked_Deallocation (Object => Pattern_Matcher,
-                                        Name   => Matcher_Access);
+                                        Name   => Token_Regexp);
    begin
       --        Ada.Text_IO.Put_Line ("Finalize di TRUE Scanner");
       for I in Item.Regexp_Table'Range loop
          if Item.Regexp_Table (I) /= null then
-            Free (Item.Regexp_Table (I));
+              Free (Item.Regexp_Table (I));
          end if;
       end loop;
       --        Ada.Text_IO.Put_Line ("Finalize di TRUE Scanner: DONE");
@@ -515,18 +478,7 @@ package body Generic_Scanner is
       end case;
    end Comment_Like;
 
-   function Regexp_Quote (Str : String) return Unbounded_String
-   is
-   begin
-      return To_Unbounded_String (GNAT.Regpat.Quote (Str));
-   end Regexp_Quote;
-
-   function Float_Regexp return Unbounded_String is
-   begin
-      return To_Unbounded_String ("[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?");
-   end Float_Regexp;
-end Generic_Scanner;
-
+end Text_Scanners.Generic_Scanner;
 
 
 
