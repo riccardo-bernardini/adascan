@@ -1,4 +1,3 @@
-pragma SPARK_Mode (On);
 
 with Ada.Characters.Latin_1;
 with Ada.Unchecked_Deallocation;
@@ -7,7 +6,7 @@ with Ada.Strings.Fixed;
 --  with Ada.Text_IO;
 --  pragma Warnings (Off, Ada.Text_IO);
 
-package body Text_Scanners.Generic_Scanner is
+package body Text_Scanners.Generic_Scanner with SPARK_Mode => Off is
 
    procedure Next (Scanner : Scanner_Type)
    is
@@ -25,7 +24,6 @@ package body Text_Scanners.Generic_Scanner is
                          Callbacks      : Post_Processor_Array := No_Processing;
                          Scan           : Boolean := True)
                          return Scanner_Type
-     with SPARK_Mode => On
    is
       use Ada.Strings.Maps;
       use Ada.Characters.Latin_1;
@@ -37,7 +35,6 @@ package body Text_Scanners.Generic_Scanner is
            S => new Basic_Scan.Basic_Scanner'
              (Basic_Scan.Create (Input => Input,
                                  Token_Regexps   => Token_Regexps,
-                                 History_Size    => History_Size,
                                  Comment_Delim   => Comment_Delim,
                                  Post_Processing => Callbacks)))
       do
@@ -139,7 +136,7 @@ package body Text_Scanners.Generic_Scanner is
    -- Finalize --
    --------------
 
-   overriding procedure Finalize (Object : in out Scanner_Type) is
+   overriding procedure Finalize (Object : in out Scanner_Type) with SPARK_Mode => Off  is
       procedure Free is
         new Ada.Unchecked_Deallocation (Object => Basic_Scan.Basic_Scanner,
                                         Name   => Scanner_Access);

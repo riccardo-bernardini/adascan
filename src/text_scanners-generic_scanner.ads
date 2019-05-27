@@ -80,7 +80,7 @@ package Text_Scanners.Generic_Scanner with SPARK_Mode => On  is
    function At_EOF (Scanner : Scanner_Type) return Boolean;
 private
 
-
+   pragma SPARK_Mode (Off);
 
    package Basic_Scan is
      new Text_Scanners.Basic_Generic_Scanner (Token_Type           => Token_Type,

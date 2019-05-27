@@ -4,33 +4,28 @@ with Ada.Characters.Latin_1;
 use Ada.Characters.Latin_1;
 with Ada.Strings.Maps; use Ada.Strings.Maps;
 
-package body Text_Scanners.Basic_Generic_Scanner is
+package body Text_Scanners.Basic_Generic_Scanner with SPARK_Mode => On is
 
    function Create (Input            : String;
                     Token_Regexps    : Regexp_Array;
-                    History_Size     : Positive := 1024;
                     Comment_Delim    : Text_Scanners.Regexps.Comment_Specs;
                     Post_Processing  : Post_Processor_Array)
                     return Basic_Scanner
    is
-  use type Regexps.Regexp;
+      use type Regexps.Regexp;
    begin
-      return Result : Basic_Scanner := (Ada.Finalization.Limited_Controlled with
-                                          Size            => Input'Length,
-                                        History_Size    => History_Size,
+      return Result : Basic_Scanner := (Size            => Input'Length,
                                         Regexp_Table    => Token_Regexps,
                                         Post_Processing => Post_Processing,
                                         Input           => Input,
                                         Cursor          => 1,
-                                        On_Eof          => <>,
+                                        On_Eof          => Token_Type'First,
                                         On_EOF_Valid    => False,
-                                        Current_Token   => <>,
-                                        String_Value    => <>,
+                                        Current_Token   => Token_Type'First,
+                                        String_Value    => Null_Unbounded_String,
                                         Whitespace      =>
                                           To_Set (" " & CR & LF & VT & HT),
-                                        History         => <>,
-                                        History_Cursor  => 0,
---                                          Callbacks       => Callback_Holder.To_Holder (Callbacks),
+                                        --                                          Callbacks       => Callback_Holder.To_Holder (Callbacks),
                                         Comment_Style   => Comment_Delim,
                                         First_Scan_Done => False)
       do
@@ -60,21 +55,21 @@ package body Text_Scanners.Basic_Generic_Scanner is
       Scanner.Cursor := Scanner.Input'Last + 1;
    end Skip_At_EOF;
 
-   -----------------------------------
-   -- Save_Current_Token_In_History --
-   -----------------------------------
-
-   procedure Save_Current_Token_In_History (Scanner : in out Basic_Scanner) is
-   begin
-      if Scanner.First_Scan_Done then
-         Scanner.History (Scanner.History_Cursor) :=
-           (Token => Scanner.Current_Token,
-            Value => Scanner.String_Value);
-
-         Scanner.History_Cursor :=
-           (Scanner.History_Cursor + 1) mod Scanner.History_Size;
-      end if;
-   end Save_Current_Token_In_History;
+   --     -----------------------------------
+   --     -- Save_Current_Token_In_History --
+   --     -----------------------------------
+   --
+   --     procedure Save_Current_Token_In_History (Scanner : in out Basic_Scanner) is
+   --     begin
+   --        if Scanner.First_Scan_Done then
+   --           Scanner.History (Scanner.History_Cursor) :=
+   --             (Token => Scanner.Current_Token,
+   --              Value => Scanner.String_Value);
+   --
+   --           Scanner.History_Cursor :=
+   --             (Scanner.History_Cursor + 1) mod Scanner.History_Size;
+   --        end if;
+   --     end Save_Current_Token_In_History;
 
 
    ----------
@@ -114,7 +109,9 @@ package body Text_Scanners.Basic_Generic_Scanner is
          end if;
       end Skip_Spaces;
 
-      function Skip_Comment (Scanner : in out Basic_Scanner) return Boolean is
+      procedure Skip_Comment (Scanner : in out Basic_Scanner;
+                              Skipped : out Boolean)
+      is
          use Ada.Strings.Fixed;
          use Ada.Characters.Latin_1;
          use Ada.Strings.Maps;
@@ -132,83 +129,102 @@ package body Text_Scanners.Basic_Generic_Scanner is
             end if;
          end Skip_EOL;
 
+         procedure Check_Comment_Start (Scanner : in out Basic_Scanner;
+                                        Present :    out Boolean)
+           with Post =>
+             (if Format (Scanner.Comment_Style) = Void then not Present)
+             and (Present = (Scanner.Cursor > Scanner.Cursor'Old));
 
-
-      begin
-         if Format (Scanner.Comment_Style) = Void  then
-            return False;
-         end if;
-
-         declare
-            Start : constant String := Comment_Start (Scanner.Comment_Style);
-            Last  : constant Natural := Scanner.Cursor + Start'Length - 1;
+         procedure Check_Comment_Start (Scanner : in out Basic_Scanner;
+                                        Present :    out Boolean)
+         is
          begin
-            if Last > Scanner.Input'Last then
-               return False;
-            end if;
+            if Format (Scanner.Comment_Style) = Void then
+               Present := False;
 
-            if Scanner.Input (Scanner.Cursor .. Last) /= Start then
-               return False;
-            end if;
-
-            Scanner.Cursor := Last + 1;
-
-            case Format (Scanner.Comment_Style) is
-            when Void =>
-               raise Program_Error;
-
-            when End_At_EOL =>
+            else
                declare
-                  Pos : Natural;
+                  Start : constant String := Comment_Start (Scanner.Comment_Style);
+                  Last  : constant Natural := Scanner.Cursor + Start'Length - 1;
                begin
-                  --  Search for the beginning of a line delimiter: CR or
-                  --  LF
-                  Pos := Index (Source => Scanner.Input,
-                                Set    => To_Set (CR & LF),
-                                From   => Scanner.Cursor);
-
-                  if Pos = 0 then
-                     --  No line delimiter found, but this is OK: the
-                     --  comment ends at EOF
-                     Scanner.Skip_At_EOF;
+                  if Last > Scanner.Input'Last
+                    or else Scanner.Input (Scanner.Cursor .. Last) /= Start then
+                     Skipped := False;
                   else
-                     --  Move to the beginning of the line delimiter
-                     --  and skip it
-                     Scanner.Cursor := Pos;
-                     Skip_EOL (Scanner);
+                     Skipped := True;
+                     Scanner.Cursor := Last + 1;
                   end if;
-
-                  return True;
                end;
-            when End_At_Delimiter =>
-               pragma Assert (Format (Scanner.Comment_Style) = End_At_Delimiter);
+            end if;
 
-               declare
-                  Pos  : Natural;
-                  Stop : constant String := Comment_End (Scanner.Comment_Style);
-               begin
-                  Pos := Index (Source  => Scanner.Input,
-                                Pattern => Stop,
-                                From    => Scanner.Cursor);
+         end Check_Comment_Start;
 
-                  if Pos = 0 then
-                     --  No closing delimiter found
-                     raise Unexpected_EOF;
-                  end if;
+         In_Comment : Boolean;
 
-                  --  Move to the first character after the delimiter
-                  Scanner.Cursor := Pos + Stop'Length;
-                  return True;
-               end;
+         subtype Non_Void_Comment_Style is Comment_Format range End_At_EOL .. End_At_Delimiter;
+      begin
+         Check_Comment_Start (Scanner, In_Comment);
+
+         if not In_Comment then
+            Skipped := False;
+
+         else
+            Skipped := True;
+
+            pragma Assert (Format (Scanner.Comment_Style) /= Void);
+
+            case Non_Void_Comment_Style'(Format (Scanner.Comment_Style)) is
+               when End_At_EOL =>
+                  declare
+                     Pos : Natural;
+                  begin
+                     --  Search for the beginning of a line delimiter: CR or
+                     --  LF
+                     Pos := Index (Source => Scanner.Input,
+                                   Set    => To_Set (CR & LF),
+                                   From   => Scanner.Cursor);
+
+                     if Pos = 0 then
+                        --  No line delimiter found, but this is OK: the
+                        --  comment ends at EOF
+                        Scanner.Skip_At_EOF;
+                     else
+                        --  Move to the beginning of the line delimiter
+                        --  and skip it
+                        Scanner.Cursor := Pos;
+                        Skip_EOL (Scanner);
+                     end if;
+                  end;
+
+               when End_At_Delimiter =>
+                  pragma Assert (Format (Scanner.Comment_Style) = End_At_Delimiter);
+
+                  declare
+                     Pos  : Natural;
+                     Stop : constant String := Comment_End (Scanner.Comment_Style);
+                  begin
+                     Pos := Index (Source  => Scanner.Input,
+                                   Pattern => Stop,
+                                   From    => Scanner.Cursor);
+
+                     if Pos = 0 then
+                        --  No closing delimiter found
+                        raise Unexpected_EOF;
+                     end if;
+
+                     --  Move to the first character after the delimiter
+                     Scanner.Cursor := Pos + Stop'Length;
+                  end;
             end case;
-         end;
+         end if;
       end Skip_Comment;
 
-
+      Skipped : Boolean;
    begin
       loop
          Skip_Spaces (Scanner);
-         exit when not Skip_Comment (Scanner);
+         Skip_Comment (Scanner, Skipped);
+         exit when not Skipped;
       end loop;
 
       if Scanner.At_EOF then
@@ -237,7 +253,7 @@ package body Text_Scanners.Basic_Generic_Scanner is
             Buffer := Scanner.Regexp_Table (Token).Match (Expr);
 
             if Buffer /= No_Match then
-               Scanner.Save_Current_Token_In_History;
+               --                 Scanner.Save_Current_Token_In_History;
                Scanner.First_Scan_Done := True;
 
                Scanner.Current_Token := Token;

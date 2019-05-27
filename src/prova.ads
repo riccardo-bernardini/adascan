@@ -1,6 +1,8 @@
 pragma SPARK_Mode;
 
 with Text_Scanners.Regexps;
+with Text_Scanners.Basic_Generic_Scanner;
+with Text_Scanners.Post_Processors;
 
 -----------
 -- Prova --
@@ -8,9 +10,11 @@ with Text_Scanners.Regexps;
 
 package Prova is
    type Zorro is (A, B, C);
-   type Topo is array (Positive range <>) of Text_Scanners.Regexps.Regexp;
+   type Q is array (Zorro) of Text_Scanners.Regexps.Regexp;
+   type AA is  array (Zorro) of Text_Scanners.Post_Processors.Post_Processor;
 
-   X : constant Topo := (1 => Text_Scanners.Regexps.ID_Regexp,
-                         2 => Text_Scanners.Regexps.Number_Regexp);
-
+   package Minnie is
+     new Text_Scanners.Basic_Generic_Scanner (Token_Type           => Zorro,
+                                              Regexp_Array         => Q,
+                                              Post_Processor_Array => Aa);
 end Prova;
