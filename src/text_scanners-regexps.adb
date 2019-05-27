@@ -19,9 +19,23 @@ package body Text_Scanners.Regexps is
                        Begin_ID_Chars      : String := "a-zA-Z")
                        return Regexp
    is
+      function Many (X : String) return String
+      is (X & "*");
+
+      function At_Least_One (X : String) return String
+      is (X & "+");
+
+      function Group (X : String) return String
+      is ("(" & X & ")");
+
+      Begin_Class      : constant String := "[" & Begin_ID_Chars & "]";
+      Basic_Class      : constant String := "[" & Basic_ID_Chars & "]";
+      Additional_Class : constant String := "[" & Additional_ID_Chars & "]";
+      Extended         : constant String := Additional_Class & At_Least_One (Basic_Class);
    begin
-      return Parse ("[" & Begin_ID_Chars & "]" &
-                      "[" & Basic_ID_Chars & Additional_ID_Chars & "]*");
+      return Parse (Begin_Class
+                    & Many (Basic_Class)
+                    & Many (Group (Extended)));
    end ID_Regexp;
 
 
@@ -32,14 +46,15 @@ package body Text_Scanners.Regexps is
 
    function String_Regexp (Quote_Char : Character) return Regexp
    is
-      use Ada.Strings.Maps;
-      use Ada.Strings.Fixed;
+        use Ada.Strings.Maps;
+        use Ada.Strings.Fixed;
 
-      Pattern : constant String := "'([^\\']|\\.)*'";
+      General_Pattern : constant String := "'([^\\']|\\.)*'";
+      Q               : constant String (1 .. 1) := (1 => Quote_Char);
+      Map             : constant Character_Mapping := To_Mapping ("'", Q);
+      Pattern         : constant String := Translate (General_Pattern, Map);
    begin
-      return Parse
-        (Translate (Source  => Pattern,
-                    Mapping => To_Mapping ("'", "" & Quote_Char)));
+      return Parse (Pattern);
    end String_Regexp;
 
 
@@ -48,11 +63,16 @@ package body Text_Scanners.Regexps is
    ---------------
 
    function ID_Regexp (Style : Language_Style) return Regexp is
-      pragma SPARK_Mode (Off);
    begin
-      --  Generated stub: replace with real body!
-      pragma Compile_Time_Warning (Standard.True, "ID_Regexp unimplemented");
-      return raise Program_Error with "Unimplemented function ID_Regexp";
+      return (case Style is
+                 when Ada_Style =>
+                   ID_Regexp (Additional_ID_Chars => "_",
+                              Basic_ID_Chars      => "a-zA-Z0-9",
+                              Begin_ID_Chars      => "a-zA-Z"),
+                 when C_Style =>
+                   ID_Regexp (Additional_ID_Chars => "",
+                              Basic_ID_Chars      => "a-zA-Z0-9_",
+                              Begin_ID_Chars      => "a-zA-Z"));
    end ID_Regexp;
 
    -------------------
@@ -64,7 +84,12 @@ package body Text_Scanners.Regexps is
       return Regexp
    is
    begin
-      return Parse ("[-+]?[0-9]?");
+      return (case Style is
+                 when Ada_Style =>
+                   Parse ("[-+]?[1-9][0-9]*(_[0-9]+)*"),
+
+                 when C_Style   =>
+                   Parse ("[-+]?[0-9]+"));
    end Number_Regexp;
 
    function Fixed_String (Str : String) return Regexp
@@ -72,11 +97,23 @@ package body Text_Scanners.Regexps is
    begin
       return Parse (GNAT.Regpat.Quote (Str));
    end Fixed_String;
-
+--
+--     function Float_Regexp (Style : Language_Style := Ada_Style) return Regexp is
+--     begin
+--        return Parse (case Style is
+--                   when Ada_Style =>
+--                      ("[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?"),
+--
+--                   when C_Style   =>
+--                      ("[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?"));
+--     end Float_Regexp;
+--
    function Float_Regexp (Style : Language_Style := Ada_Style) return Regexp is
    begin
       return Parse ("[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?");
    end Float_Regexp;
+
+
 
    -------------------
    -- String_Regexp --
@@ -86,11 +123,13 @@ package body Text_Scanners.Regexps is
      (Style : Language_Style := Ada_Style)
       return Regexp
    is
-      pragma SPARK_Mode (Off);
    begin
-      --  Generated stub: replace with real body!
-      pragma Compile_Time_Warning (Standard.True, "String_Regexp unimplemented");
-      return raise Program_Error with "Unimplemented function String_Regexp";
+      return (case Style is
+                 when Ada_Style =>
+                   Parse ("""[^""]*(""""[^""]*)*"""),
+
+                 when C_Style   =>
+                   Parse ("""[^""]*(\""[^""]*)*"""));
    end String_Regexp;
 
 

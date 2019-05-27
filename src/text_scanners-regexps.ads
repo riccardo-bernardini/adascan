@@ -47,7 +47,7 @@ package Text_Scanners.Regexps is
 
    function Number_Regexp (Style : Language_Style := Ada_Style) return Regexp;
 
-   function Float_Regexp (Style : Language_Style := Ada_Style)  return Regexp;
+   function Float_Regexp (Style : Language_Style := Ada_Style) return Regexp;
 
    function String_Regexp (Quote_Char : Character) return Regexp;
 
