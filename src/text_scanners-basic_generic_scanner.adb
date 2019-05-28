@@ -78,6 +78,9 @@ package body Text_Scanners.Basic_Generic_Scanner with SPARK_Mode => On is
 
    procedure Next (Scanner : in out Basic_Scanner) is
 
+      function Current_Char (Scanner : Basic_Scanner) return Character
+        with Pre => not Scanner.At_EOF;
+
       function Current_Char (Scanner : Basic_Scanner) return Character is
       begin
          return Scanner.Input (Scanner.Cursor);
@@ -85,9 +88,10 @@ package body Text_Scanners.Basic_Generic_Scanner with SPARK_Mode => On is
 
       pragma Inline (Current_Char);
 
-      procedure Skip_Spaces (Scanner : in out Basic_Scanner);
-      pragma Postcondition (not Ada.Strings.Maps.Is_In
-                            (Current_Char (Scanner), Scanner.Whitespace));
+      procedure Skip_Spaces (Scanner : in out Basic_Scanner)
+        with Post => (Scanner.At_EOF or else
+                        not Ada.Strings.Maps.Is_In
+                          (Current_Char (Scanner), Scanner.Whitespace));
       --  Skip spaces until a non-space char or EOF.
 
       procedure Skip_Spaces (Scanner : in out Basic_Scanner) is
@@ -147,11 +151,12 @@ package body Text_Scanners.Basic_Generic_Scanner with SPARK_Mode => On is
                   Start : constant String := Comment_Start (Scanner.Comment_Style);
                   Last  : constant Natural := Scanner.Cursor + Start'Length - 1;
                begin
-                  if Last > Scanner.Input'Last
-                    or else Scanner.Input (Scanner.Cursor .. Last) /= Start then
-                     Skipped := False;
+                  if Start'Length > Scanner.Input'Last - Scanner.Cursor + 1 or else
+                    Scanner.Input (Scanner.Cursor .. Last) /= Start
+                  then
+                     Present := False;
                   else
-                     Skipped := True;
+                     Present := True;
                      Scanner.Cursor := Last + 1;
                   end if;
                end;
@@ -161,7 +166,8 @@ package body Text_Scanners.Basic_Generic_Scanner with SPARK_Mode => On is
 
          In_Comment : Boolean;
 
-         subtype Non_Void_Comment_Style is Comment_Format range End_At_EOL .. End_At_Delimiter;
+         subtype Non_Void_Comment_Style is
+           Comment_Format range End_At_EOL .. End_At_Delimiter;
       begin
          Check_Comment_Start (Scanner, In_Comment);
 

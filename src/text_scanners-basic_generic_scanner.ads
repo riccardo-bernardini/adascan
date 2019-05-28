@@ -20,7 +20,20 @@ package Text_Scanners.Basic_Generic_Scanner is
                     Token_Regexps    : Regexp_Array;
                     Comment_Delim    : Text_Scanners.Regexps.Comment_Specs;
                     Post_Processing  : Post_Processor_Array)
-                    return Basic_Scanner;
+                    return Basic_Scanner
+     with
+       Pre'Class =>
+         Input'Length > 0
+         and Input'Last < Integer'Last - 1
+         and (for all Tk in Token_Type =>
+                (if Regexps.Is_Eof_Regexp (Token_Regexps (Tk))
+                   then
+                     (for all U in Token_Type =>
+                          (if Regexps.Is_Eof_Regexp (Token_Regexps (U)) then U = Tk)
+                     )
+                )
+             );
+
 
    procedure Next (Scanner : in out Basic_Scanner);
 
@@ -47,7 +60,9 @@ private
    type History_Array is
      array (Natural range <>) of History_Entry;
 
-   type Basic_Scanner (Size : Positive) is tagged limited
+   subtype Input_Pointer is Positive range 1 .. Positive'Last - 1;
+
+   type Basic_Scanner (Size : Input_Pointer) is tagged limited
       record
          Regexp_Table    : Regexp_Array;
          Input           : String (1 .. Size);
