@@ -89,9 +89,8 @@ package body Text_Scanners.Basic_Generic_Scanner with SPARK_Mode => On is
       pragma Inline (Current_Char);
 
       procedure Skip_Spaces (Scanner : in out Basic_Scanner)
-        with Post => (Scanner.At_EOF or else
-                        not Ada.Strings.Maps.Is_In
-                          (Current_Char (Scanner), Scanner.Whitespace));
+        with Post => (Scanner.At_EOF
+                      or else not Is_In (Scanner.Input (Scanner.Cursor), Scanner.Whitespace));
       --  Skip spaces until a non-space char or EOF.
 
       procedure Skip_Spaces (Scanner : in out Basic_Scanner) is
@@ -105,6 +104,13 @@ package body Text_Scanners.Basic_Generic_Scanner with SPARK_Mode => On is
                        Set    => Scanner.Whitespace,
                        From   => Scanner.Cursor,
                        Test   => Outside);
+
+         pragma Assume (if Pos = 0
+                        then
+                          (for all Ch of Scanner.Input (Scanner.Cursor .. Scanner.Input'Last) => Is_In (Ch, Scanner.Whitespace))
+                        else
+                          ((Pos >= Scanner.Cursor and Pos < Scanner.Input'Last)
+                           and then not Is_In (Scanner.Input (Pos), Scanner.Whitespace)));
 
          if Pos = 0 then
             Scanner.Skip_At_EOF;
@@ -189,6 +195,15 @@ package body Text_Scanners.Basic_Generic_Scanner with SPARK_Mode => On is
                      Pos := Index (Source => Scanner.Input,
                                    Set    => To_Set (CR & LF),
                                    From   => Scanner.Cursor);
+
+                     pragma Assume
+                       (if Pos = 0
+                        then
+                          (for all Ch of Scanner.Input (Scanner.Cursor .. Scanner.Input'Last) => not Is_In (Ch, To_Set (CR & LF)))
+                        else
+                          ((Pos >= Scanner.Cursor and Pos < Scanner.Input'Last)
+                           and then Is_In (Scanner.Input (Pos), To_Set (Cr & LF))));
+
 
                      if Pos = 0 then
                         --  No line delimiter found, but this is OK: the

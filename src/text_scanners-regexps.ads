@@ -77,19 +77,35 @@ package Text_Scanners.Regexps is
 
    function Single_Delimeter_Comments (Start : String) return Comment_Specs
      with
-       Post => Format (Single_Delimeter_Comments'Result) = End_At_EOL;
+       Pre =>
+         Start'Length > 0,
+         Post =>
+           Format (Single_Delimeter_Comments'Result) = End_At_EOL
+     and Comment_Start (Single_Delimeter_Comments'Result) = Start;
+
 
    function Double_Delimeter_Comments (Start, Stop : String) return Comment_Specs
      with
-       Post => Format (Double_Delimeter_Comments'Result) = End_At_Delimiter;
+       Pre =>
+         Start'Length > 0 and Stop'Length > 0,
+       Post =>
+         Format (Double_Delimeter_Comments'Result) = End_At_Delimiter
+     and Comment_Start (Double_Delimeter_Comments'Result) = Start
+     and Comment_End (Double_Delimeter_Comments'Result) = Stop;
 
    function Comment_Start (Specs : Comment_Specs) return String
      with
-       Pre => Format (Specs) /= Void;
+       Pre => Format (Specs) /= Void,
+     Post =>
+       Comment_Start'Result'Length > 0;
 
    function Comment_End (Specs : Comment_Specs) return String
      with
-       Pre => Format (Specs) = End_At_Delimiter;
+       Pre =>
+         Format (Specs) = End_At_Delimiter,
+     Post =>
+       Comment_End'Result'Length > 0;
+
 
    type Comment_Style is
      (
