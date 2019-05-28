@@ -13,6 +13,15 @@ generic
    type Regexp_Array is array (Token_Type) of Regexps.Regexp;
    type Post_Processor_Array is array (Token_Type) of Post_Processors.Post_Processor;
 package Text_Scanners.Basic_Generic_Scanner is
+   type Error_Class is (OK, Unexpected_EOF, Unrecognized_Token);
+
+   subtype Error_Message is String (1 .. 32);
+   type Error_Type is
+      record
+         Err     : Error_Class;
+         Message : Error_Message;
+      end record;
+
    type Basic_Scanner (<>) is tagged limited private;
 
 
@@ -35,7 +44,8 @@ package Text_Scanners.Basic_Generic_Scanner is
              );
 
 
-   procedure Next (Scanner : in out Basic_Scanner);
+   procedure Next (Scanner : in out Basic_Scanner;
+                   Err     :    out Error_Class);
 
    function Current_Token (Scanner : Basic_Scanner) return Token_Type;
 

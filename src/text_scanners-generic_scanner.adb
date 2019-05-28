@@ -8,10 +8,37 @@ with Ada.Strings.Fixed;
 
 package body Text_Scanners.Generic_Scanner with SPARK_Mode => Off is
 
+   ------------
+   -- Handle --
+   ------------
+
+   procedure Handle (Err : Basic_Scan.Error_Class)
+   is
+      use type Basic_Scan.Error_Class;
+   begin
+      case Err is
+         when Basic_Scan.Ok =>
+            return;
+
+         when Basic_Scan.Unexpected_EOF =>
+            raise Unexpected_EOF;
+
+         when Basic_Scan.Unrecognized_Token =>
+            raise Unrecognized_Token;
+      end case;
+   end Handle;
+
+   ----------
+   -- Next --
+   ----------
+
    procedure Next (Scanner : Scanner_Type)
    is
+      Err : Basic_Scan.Error_Class;
    begin
-      Scanner.S.Next;
+      Scanner.S.Next (Err);
+
+      Handle (Err);
    end Next;
    -----------------
    -- New_Scanner --
