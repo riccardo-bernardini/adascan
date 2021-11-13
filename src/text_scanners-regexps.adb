@@ -6,6 +6,12 @@ with Ada.Strings.Fixed;
 package body Text_Scanners.Regexps is
    use Ada.Strings.Unbounded;
 
+   function Zero_Or_More (X:String) return String
+   is ("(" & X & ")*");
+
+   function One_Or_More (X:String) return String
+   is ("(" & X & ")+");
+
    Basic_Dec_Int : constant String := "[0-9]+";
    Basic_Hex_Int : constant String := "[0-9a-fA-F]+";
    Basic_Oct_Int : constant String := "[0-7]+";
@@ -110,10 +116,12 @@ package body Text_Scanners.Regexps is
    -------------------
 
    function String_Regexp (Quote_Char : Character) return Regexp is
+      No_Quote_Seq : constant String := "[^""]*";
    begin
-      --  Generated stub: replace with real body!
-      pragma Compile_Time_Warning (Standard.True, "String_Regexp unimplemented");
-      return raise Program_Error with "Unimplemented function String_Regexp";
+      return Compile('"'
+                     & No_Quote_Seq
+                     & Zero_Or_More (Quote_Char & """" & No_Quote_Seq)
+                     & "'");
    end String_Regexp;
 
    -------------------
@@ -125,9 +133,13 @@ package body Text_Scanners.Regexps is
       return Regexp
    is
    begin
-      --  Generated stub: replace with real body!
-      pragma Compile_Time_Warning (Standard.True, "String_Regexp unimplemented");
-      return raise Program_Error with "Unimplemented function String_Regexp";
+      case Style is
+         when Ada_Style =>
+            return String_Regexp('"');
+
+         when C_Style =>
+            return String_Regexp('\');
+      end case;
    end String_Regexp;
 
    ------------------
