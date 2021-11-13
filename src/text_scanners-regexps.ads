@@ -68,5 +68,5 @@ private
       end record;
 
    Eof_Regexp : constant Regexp := (Is_Eof_Regexp => True,
-                                    Matcher => Gnat.Regpat.Never_Match);
+                                    Matcher => <>);
 end Text_Scanners.Regexps;

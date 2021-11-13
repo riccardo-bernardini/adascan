@@ -1,4 +1,5 @@
-with Generic_Scanner;
+with Text_Scanners.Generic_Scanner;
+with Text_Scanners.Regexps;
 with Test_Report;                 use Test_Report;
 
 with Ada.Exceptions;
@@ -11,6 +12,7 @@ pragma Warnings (Off, Ada.Text_IO);
 
 procedure Test_Scanner is
    use Ada.Characters;
+   use Text_Scanners;
 
    EOL : constant String := Latin_1.CR & Latin_1.LF;
 
@@ -37,10 +39,10 @@ procedure Test_Scanner is
    type Expected_Sequence_Access is
      access Expected_Sequence;
 
---     type Comment_Style is (C, C_Plus_Plus, LaTeX, Ada_Style, Shell);
---     pragma Warnings (Off, C_Plus_Plus);
---     pragma Warnings (Off, LaTeX);
---     pragma Warnings (Off, Shell);
+   --     type Comment_Style is (C, C_Plus_Plus, LaTeX, Ada_Style, Shell);
+   --     pragma Warnings (Off, C_Plus_Plus);
+   --     pragma Warnings (Off, LaTeX);
+   --     pragma Warnings (Off, Shell);
 
    type Test_Case is
       record
@@ -55,46 +57,46 @@ procedure Test_Scanner is
 
 
    Test_Cases : constant Test_Case_Array :=
-                  ((Input      => +"pip.po = 42; /* prova */ gigi : 'cane'; ",
-                    Comment     => Scan.C_Like,
-                    Extended_ID => +".",
-                    Expected    =>
-                    new Expected_Sequence'(
-                      (ID, +"pip.po"),
-                      (Equal, +"="),
-                      (Number, +"42"),
-                      (Semicolon, +";"),
-                      (ID, +"gigi"),
-                      (Colon, +":"),
-                      (Text, +"'cane'"))),
-                   (Input       => +"pippo = 42; /* prova */ gi.gi : 'cane'; ",
-                    Comment     => Scan.C_Like,
-                    Extended_ID => +"",
-                    Expected    =>
-                    new Expected_Sequence'(
-                      (ID, +"pippo"),
-                      (Equal, +"="),
-                      (Number, +"42"),
-                      (Semicolon, +";"),
-                      (ID, +"gi"),
-                      (Error, +""))),
-                   (Input       =>
-                    +"pippo = 42; -- Ignora #" & EOL
-                    & EOL
-                    & "   -- Riga vuota " & EOL
-                    & " gigi : 'ca--n\'e''gatto'; ",
-                    Comment     => Scan.Ada_Like,
-                    Extended_ID => +"",
-                    Expected    =>
-                    new Expected_Sequence'(
-                      (ID, +"pippo"),
-                      (Equal, +"="),
-                      (Number, +"42"),
-                      (Semicolon, +";"),
-                      (ID, +"gigi"),
-                      (Colon, +":"),
-                      (Text, +"'ca--n\'e'"),
-                      (Text, +"'gatto'"))));
+     ((Input      => +"pip.po = 42; /* prova */ gigi : 'cane'; ",
+       Comment     => Scan.C_Like,
+       Extended_ID => +".",
+       Expected    =>
+          new Expected_Sequence'(
+         (ID, +"pip.po"),
+         (Equal, +"="),
+         (Number, +"42"),
+         (Semicolon, +";"),
+         (ID, +"gigi"),
+         (Colon, +":"),
+         (Text, +"'cane'"))),
+      (Input       => +"pippo = 42; /* prova */ gi.gi : 'cane'; ",
+       Comment     => Scan.C_Like,
+       Extended_ID => +"",
+       Expected    =>
+          new Expected_Sequence'(
+         (ID, +"pippo"),
+         (Equal, +"="),
+         (Number, +"42"),
+         (Semicolon, +";"),
+         (ID, +"gi"),
+         (Error, +""))),
+      (Input       =>
+           +"pippo = 42; -- Ignora #" & EOL
+       & EOL
+       & "   -- Riga vuota " & EOL
+       & " gigi : 'ca--n\'e''gatto'; ",
+       Comment     => Scan.Ada_Like,
+       Extended_ID => +"",
+       Expected    =>
+          new Expected_Sequence'(
+         (ID, +"pippo"),
+         (Equal, +"="),
+         (Number, +"42"),
+         (Semicolon, +";"),
+         (ID, +"gigi"),
+         (Colon, +":"),
+         (Text, +"'ca--n\'e'"),
+         (Text, +"'gatto'"))));
 
 
 
@@ -102,49 +104,49 @@ procedure Test_Scanner is
    function Check (Test : Test_Case) return Boolean is
       use Ada.Exceptions;
 
---        function To_String (Style : Comment_Style) return String is
---        begin
---           case Style is
---              when C =>
---                 return Scan.C_Like_Comments;
---              when C_Plus_Plus =>
---                 return Scan.C_Plus_Plus_Like_Comments;
---              when LaTeX =>
---                 return Scan.Latex_Like_Comments;
---              when  Ada_Style =>
---                 return Scan.Ada_Like_Comments;
---              when Shell =>
---                 return Scan.Shell_Like_Comments;
---           end case;
---        end To_String;
+      --        function To_String (Style : Comment_Style) return String is
+      --        begin
+      --           case Style is
+      --              when C =>
+      --                 return Scan.C_Like_Comments;
+      --              when C_Plus_Plus =>
+      --                 return Scan.C_Plus_Plus_Like_Comments;
+      --              when LaTeX =>
+      --                 return Scan.Latex_Like_Comments;
+      --              when  Ada_Style =>
+      --                 return Scan.Ada_Like_Comments;
+      --              when Shell =>
+      --                 return Scan.Shell_Like_Comments;
+      --           end case;
+      --        end To_String;
 
 
-      Regexps : constant Scan.Token_Regexp_Array :=
-                  (ID     => Scan.ID_Regexp (To_String (Test.Extended_ID)),
-                   Number => Scan.Number_Regexp,
-                   Text   => Scan.String_Regexp ('''),
-                   Colon  => +":",
-                   Semicolon => +";",
-                   Equal     => +"=",
-                   EOF       => +"");
+      Token_To_Regexp : constant Scan.Token_Regexp_Array :=
+        (ID     => Regexps.ID_Regexp (To_String (Test.Extended_ID)),
+         Number => Regexps.Number_Regexp,
+         Text   => Regexps.String_Regexp ('''),
+         Colon  => Regexps.Fixed_String(":"),
+         Semicolon => Regexps.Fixed_String(";"),
+         Equal     => Regexps.Fixed_String("="),
+         EOF       => Regexps.Eof_Regexp);
 
       Scanner : Scan.Scanner_Type :=
-                  Scan.New_Scanner
-                    (Input         => To_String (Test.Input),
-                     Regexps       => Regexps,
-                     Comment_Delim => Scan.Comment_Like (Test.Comment),
-                     Scan          => False);
+        Scan.New_Scanner
+          (Input         => To_String (Test.Input),
+           Regexps       => Token_To_Regexp,
+           Comment_Delim => Scan.Comment_Like (Test.Comment),
+           Scan          => False);
 
       Expected       : Extended_Token_Type;
       Expected_Value : Unbounded_String;
       Token          : Token_Type;
    begin
---        Ada.Text_IO.Put_Line
---                ("*** TESTING *** <" & To_String (Test.Input) & ">");
+      --        Ada.Text_IO.Put_Line
+      --                ("*** TESTING *** <" & To_String (Test.Input) & ">");
 
       for I in Test.Expected'Range loop
          Expected := Test.Expected (I).Token;
---           Ada.Text_IO.Put_Line (">>>>  Expecting " & Expected'Img);
+         --           Ada.Text_IO.Put_Line (">>>>  Expecting " & Expected'Img);
 
          Expected_Value := Test.Expected (I).Value;
 

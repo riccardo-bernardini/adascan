@@ -195,9 +195,14 @@ package body Text_Scanners.Regexps is
                    Input    : String)
    is
    begin
-      GNAT.Regpat.Match(Self    => Matcher.Matcher,
-                        Data    => Input,
-                        Matches => Matching.Data);
+      if Matcher.Is_Eof_Regexp then
+         Matching.Data(0) := GNAT.Regpat.No_Match;
+
+      else
+         GNAT.Regpat.Match(Self    => Matcher.Matcher,
+                           Data    => Input,
+                           Matches => Matching.Data);
+      end if;
    end Match;
 
 
