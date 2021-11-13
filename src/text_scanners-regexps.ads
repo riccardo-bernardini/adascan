@@ -17,9 +17,9 @@ package Text_Scanners.Regexps is
 
    function Is_Eof(X : Regexp) return Boolean;
 
-   function ID_Regexp (Additional_ID_Chars : String := "_";
-                       Basic_ID_Chars      : String := "a-zA-Z0-9";
-                       Begin_ID_Chars      : String := "a-zA-Z")
+   function ID_Regexp (Body_ID_Chars  : String := "a-zA-Z0-9";
+                       Begin_ID_Chars : String := "a-zA-Z";
+                       Section_Separator : String := "")
                        return Regexp;
 
    function ID_Regexp (Style : Language_Style) return Regexp;

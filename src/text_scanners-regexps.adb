@@ -12,12 +12,20 @@ package body Text_Scanners.Regexps is
    function One_Or_More (X:String) return String
    is ("(" & X & ")+");
 
-   Basic_Dec_Int : constant String := "[0-9]+";
-   Basic_Hex_Int : constant String := "[0-9a-fA-F]+";
-   Basic_Oct_Int : constant String := "[0-7]+";
-   Ada_Decimal   : constant String := Basic_Dec_Int & "(_" & Basic_Dec_Int& ")+";
-   Basic_Ada_Hex : constant String := Basic_Hex_Int & "(_" & Basic_Hex_Int & ")+";
-   Ada_Based     : constant String := Basic_Dec_Int & "#" & Basic_Ada_Hex & "#";
+   function Charset(X:String) return String
+   is ("[" & X & "]");
+
+   Dec_Sequence  : constant String := "[0-9]+";
+   Hex_Sequence  : constant String := "[0-9a-fA-F]+";
+   Ada_Decimal   : constant String :=
+     Dec_Sequence & Zero_Or_More("_" & Dec_Sequence);
+
+   Ada_Based     : constant String :=
+     Dec_Sequence
+     & "#"
+     & Hex_Sequence & Zero_Or_More("_" & Hex_Sequence)
+     & "#";
+
    Optional_Sign : constant String := "(+|-)?";
 
    function Anchor (X : String) return String
@@ -40,16 +48,23 @@ package body Text_Scanners.Regexps is
 
 
 
-   function ID_Regexp (Additional_ID_Chars : String := "_";
-                       Basic_ID_Chars      : String := "a-zA-Z0-9";
-                       Begin_ID_Chars      : String := "a-zA-Z")
+   function ID_Regexp (Body_ID_Chars  : String := "a-zA-Z0-9";
+                       Begin_ID_Chars : String := "a-zA-Z";
+                       Section_Separator : String := "")
                        return Regexp
    is
-      Tmp : constant String := "[" & Begin_ID_Chars & "]"
-        &
-        "[" & Basic_ID_Chars & Additional_ID_Chars & "]*";
+      use GNAT;
+
+      Head : constant String := Charset(Begin_ID_Chars);
+      Core : constant String := Zero_Or_More(Charset(Body_ID_Chars));
    begin
-      return Compile (Tmp);
+      if Section_Separator = "" then
+         return Compile (Head & Core);
+      else
+         return Compile(Head
+                        & Core
+                        & Zero_Or_More(Regpat.Quote(Section_Separator) & Core));
+      end if;
    end ID_Regexp;
 
    function Number_Regexp return Unbounded_String
@@ -81,10 +96,18 @@ package body Text_Scanners.Regexps is
    ---------------
 
    function ID_Regexp (Style : Language_Style) return Regexp is
+      Alfanum_Seq : constant String := Zero_Or_More(Charset("a-zA-Z0-9"));
    begin
-      --  Generated stub: replace with real body!
-      pragma Compile_Time_Warning (Standard.True, "ID_Regexp unimplemented");
-      return raise Program_Error with "Unimplemented function ID_Regexp";
+      case Style is
+         when Ada_Style =>
+            return ID_Regexp(Body_ID_Chars  => "a-zA-Z0-9",
+                             Begin_ID_Chars => "a-zA-Z",
+                             Section_Separator => "_");
+
+         when C_Style=>
+            return ID_Regexp(Body_ID_Chars  => "a-zA-Z0-9_",
+                             Begin_ID_Chars => "a-zA-Z_");
+      end case;
    end ID_Regexp;
 
    -------------------
@@ -102,7 +125,7 @@ package body Text_Scanners.Regexps is
               Optional_Sign & "(" & Ada_Decimal & "|" & Ada_Based & ")",
 
             when C_Style =>
-              Optional_Sign & "(" & Basic_Dec_Int & "|0[xX]" & Basic_Hex_Int & ")");
+              Optional_Sign & "(" & Dec_Sequence & "|0[xX]" & Hex_Sequence & ")");
    end Number_Regexp;
 
 
@@ -148,5 +171,34 @@ package body Text_Scanners.Regexps is
 
    function Fixed_String (Str : String) return Regexp
    is (Compile(Gnat.Regpat.Quote(Str)));
+
+   function Has_Matched(Item : Match_Data) return Boolean
+   is
+      use type GNAT.Regpat.Match_Location;
+   begin
+      return Item.Data(0) /= GNAT.Regpat.No_Match;
+   end Has_Matched;
+
+   function Get_Matched (Source : String;
+                         Matching : Match_Data)
+                         return String
+   is (Source(Matching.Data(0).First ..  Matching.Data(0).Last));
+
+   function Last_Matched (Matching: Match_Data) return Positive
+   is (Matching.Data(0).Last);
+
+   function First_Matched (Matching: Match_Data) return Positive
+   is (Matching.Data(0).First);
+
+   procedure Match(Matcher  : Regexp;
+                   Matching : out Match_Data;
+                   Input    : String)
+   is
+   begin
+      GNAT.Regpat.Match(Self    => Matcher.Matcher,
+                        Data    => Input,
+                        Matches => Matching.Data);
+   end Match;
+
 
 end Text_Scanners.Regexps;
