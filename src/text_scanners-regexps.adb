@@ -2,6 +2,7 @@ pragma Ada_2012;
 with Ada.Strings.Maps;
 with Ada.Strings.Unbounded;
 with Ada.Strings.Fixed;
+with Ada.Text_IO;
 
 package body Text_Scanners.Regexps is
    use Ada.Strings.Unbounded;
@@ -26,7 +27,7 @@ package body Text_Scanners.Regexps is
      & Hex_Sequence & Zero_Or_More("_" & Hex_Sequence)
      & "#";
 
-   Optional_Sign : constant String := "(+|-)?";
+   Optional_Sign : constant String := "(\+|-)?";
 
    function Anchor (X : String) return String
    is (if X (X'First) = '^' then X else '^' & X);
@@ -40,6 +41,8 @@ package body Text_Scanners.Regexps is
       Result : Regexp:=Regexp'(Is_Eof_Regexp => False,
                                Matcher => <>);
    begin
+      Ada.Text_IO.Put_Line("<" & Regexp_Spec & ">");
+
       Gnat.Regpat.Compile(Matcher         => Result.Matcher,
                           Expression      => Anchor(Regexp_Spec));
 
