@@ -7,14 +7,83 @@ with Ada.Text_IO;
 package body Text_Scanners.Regexps is
    use Ada.Strings.Unbounded;
 
+   function To_Character_Set(X:Charset_Spec)
+                             return Strings.Maps.Character_Set
+   is
+      use Ada.Strings.Maps;
+
+      Result : Character_Set := Null_Set;
+      Inverted : Boolean := False;
+
+      Cursor : Positive := X'First;
+
+
+      function End_Of_Input return Boolean
+      is (Cursor > X'Last);
+
+      function Current_Char return Character
+        with Pre => not End_Of_Input;
+
+      function Current_Char return Character
+      is (X(Cursor));
+
+      procedure Next
+      is
+      begin
+         Cursor := Cursor+1;
+      end Next;
+
+      C : Character;
+   begin
+      if Current_Char = '^' then
+         Inverted := True;
+         Next;
+      end if;
+
+      while not End_Of_Input loop
+         C := Current_Char;
+         Next;
+
+         if End_Of_Input or else  Current_Char /= '-' then
+            Result := Result or To_Set(C);
+
+         else
+            pragma Assert(Current_Char = '-');
+            Next;
+
+            if End_Of_Input then
+               --
+               -- We found something like "a-"
+               --
+
+               Result := Result or To_Set(C) or To_Set('-');
+
+            else
+               -- Here we found something like "a-z"
+               pragma Assert(not End_Of_Input);
+
+               Result := Result or To_Set(Character_Range'(C, Current_Char));
+
+               Next;
+            end if;
+         end if;
+      end loop;
+
+      if Inverted then
+         Result := not Result;
+      end if;
+
+      return Result;
+   end To_Character_Set;
+
    function Zero_Or_More (X:String) return String
    is ("(" & X & ")*");
 
    function One_Or_More (X:String) return String
    is ("(" & X & ")+");
 
-   function Charset(X:String) return String
-   is ("[" & X & "]");
+   function Charset(X:Charset_Spec) return String
+   is ("[" & String(X) & "]");
 
    Dec_Sequence  : constant String := "[0-9]+";
    Hex_Sequence  : constant String := "[0-9a-fA-F]+";
@@ -49,25 +118,29 @@ package body Text_Scanners.Regexps is
       return Result;
    end Compile;
 
+   function Sectioned_ID (Section_Delimiters : Charset_Spec;
+                          Begin_ID_Chars : Charset_Spec := "a-zA-Z_";
+                          Body_ID_Chars  : Charset_Spec := "a-zA-Z0-9_")
+                          return Regexp
+   is
+      Head : constant String := Charset(Begin_ID_Chars);
+      Core : constant String := Zero_Or_More(Charset(Body_ID_Chars));
+   begin
+      return Compile(Head
+                     & Core
+                     & Zero_Or_More(Charset(Section_Delimiters) & Core));
+   end Sectioned_ID;
 
-
-   function ID_Regexp (Body_ID_Chars  : String := "a-zA-Z0-9";
-                       Begin_ID_Chars : String := "a-zA-Z";
-                       Section_Separator : String := "")
+   function ID_Regexp (Begin_ID_Chars : Charset_Spec := "a-zA-Z_";
+                       Body_ID_Chars  : Charset_Spec := "a-zA-Z0-9_")
                        return Regexp
    is
-      use GNAT;
+      --      use GNAT;
 
       Head : constant String := Charset(Begin_ID_Chars);
       Core : constant String := Zero_Or_More(Charset(Body_ID_Chars));
    begin
-      if Section_Separator = "" then
-         return Compile (Head & Core);
-      else
-         return Compile(Head
-                        & Core
-                        & Zero_Or_More(Regpat.Quote(Section_Separator) & Core));
-      end if;
+      return Compile (Head & Core);
    end ID_Regexp;
 
    function Number_Regexp return Unbounded_String
@@ -102,14 +175,14 @@ package body Text_Scanners.Regexps is
       Alfanum_Seq : constant String := Zero_Or_More(Charset("a-zA-Z0-9"));
    begin
       case Style is
-         when Ada_Style =>
-            return ID_Regexp(Body_ID_Chars  => "a-zA-Z0-9",
+      when Ada_Style =>
+         return Sectioned_ID(Body_ID_Chars  => "a-zA-Z0-9",
                              Begin_ID_Chars => "a-zA-Z",
-                             Section_Separator => "_");
+                             Section_Delimiters => "_");
 
-         when C_Style=>
-            return ID_Regexp(Body_ID_Chars  => "a-zA-Z0-9_",
-                             Begin_ID_Chars => "a-zA-Z_");
+      when C_Style=>
+         return ID_Regexp(Body_ID_Chars  => "a-zA-Z0-9_",
+                          Begin_ID_Chars => "a-zA-Z_");
       end case;
    end ID_Regexp;
 
@@ -119,7 +192,7 @@ package body Text_Scanners.Regexps is
 
    function Number_Regexp
      (Style : Language_Style := Ada_Style)
-      return Regexp
+   return Regexp
    is
    begin
       return Compile
@@ -156,15 +229,15 @@ package body Text_Scanners.Regexps is
 
    function String_Regexp
      (Style : Language_Style := Ada_Style)
-      return Regexp
+   return Regexp
    is
    begin
       case Style is
-         when Ada_Style =>
-            return String_Regexp('"');
+      when Ada_Style =>
+         return String_Regexp('"');
 
-         when C_Style =>
-            return String_Regexp('\');
+      when C_Style =>
+         return String_Regexp('\');
       end case;
    end String_Regexp;
 
@@ -184,7 +257,7 @@ package body Text_Scanners.Regexps is
 
    function Get_Matched (Source : String;
                          Matching : Match_Data)
-                         return String
+                      return String
    is (Source(Matching.Data(0).First ..  Matching.Data(0).Last));
 
    function Last_Matched (Matching: Match_Data) return Positive
