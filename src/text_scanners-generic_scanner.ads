@@ -13,6 +13,28 @@ private with Text_Scanners.Basic_Generic_Scanner;
 -- Generic_Scanner --
 ---------------------
 
+--
+--  A scanner is an object that takes a sequence of characters (OK, a string...) as
+--  input and partitions it into pieces called "token."  Every token is characterized
+--  by two attributes: its class (e.g., a string, a number, an identifier, an operator)
+--  and its "image," that is the piece of text taken from the input.
+--
+--  Scanners are usually used as the first block of parsers since it is usually
+--  easier to separate the lexical analysis (done by the scanner) from the syntax
+--  analysis (done by the parser).
+--
+--  The syntax of each token class is usually described with regular expressions,
+--  although there are cases where regular expressions are not enough, e.g.
+--  strings in PostScript represented by balanced parenthesis; for example
+--
+--  ```postscript
+--  (this is a string with (parenthesis) inside)
+--  ```
+--  is a valid PostScript string.
+--
+--  Since we want the token class to be represented by an enumerative type, we
+--  make this package a generic one.
+
 generic
    type Token_Type is (<>);
 package Text_Scanners.Generic_Scanner with SPARK_Mode => On  is
